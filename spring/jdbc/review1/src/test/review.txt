@@ -1,0 +1,12 @@
+1 创建项目目录;配置application.xml或者配置类
+ 1.1 application.xml
+ 复制约束--开启包扫描--开启注释--druild数据连接池注册--jdbc注册
+ * 注意
+    druid的dataSource路径: com.alibaba.druid.pool.DruidDataSource
+    driver的路径: com.mysql.jdbc.Driver
+    jdbc的路径: org.springframework.jdbc.core.JdbcTemplate
+2 pojo类--dao类--service类--test类 使用注解开发(ioc)部分
+    编写pojo类 多写了bind()和parse()
+      注解编程了多例模式 @Scope("prototype")
+    编写Dao接口和DaoImpl -- 编写Service -- test类调用
+
