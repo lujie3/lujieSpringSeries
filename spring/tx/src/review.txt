@@ -1,0 +1,411 @@
+---
+## 事务
+1 什么是事务
+事务是数据库操作的最基本单位;一组操作具有原子性
+2 事务的四大特性ACID
+原子性,一个事务中所有操作,要么全部完成or全部不完成;一个事务是不可分割的
+一致性,在事务开始之前和事务结束以后,数据库的完整性没有被破坏。写入的数据必须完全符合所有预设的约束,触发器,级联回滚
+隔离性,数据库允许多个并发事务同时对数据读写;隔离性能防止多个事务并发,而导致数据的不一致;事务隔离分四个等级[未提交读;提交读;可重复读;串行化]
+持久性,事务处理结束后,对数据的修改就是永久的.
+---
+### 事务操作
+pom.xml
+```xml
+    <!--  此处引入坐标添加依赖  -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.11</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!--数据库连接池-->
+    <dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>druid</artifactId>
+      <version>1.2.9</version>
+    </dependency>
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>5.1.47</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+      <version>5.3.16</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.testng</groupId>
+      <artifactId>testng</artifactId>
+      <version>RELEASE</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
+      <version>1.7.2</version>
+      <type>jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>javax.annotation</groupId>
+      <artifactId>javax.annotation-api</artifactId>
+      <version>1.3.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.aspectj</groupId>
+      <artifactId>aspectjweaver</artifactId>
+      <version>1.8.13</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-jdbc</artifactId>
+      <version>5.3.15</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-tx</artifactId>
+      <version>5.3.15</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-orm</artifactId>
+      <version>5.1.7.RELEASE</version>
+    </dependency>
+```
+---
+#### 环境搭建(转账的业务环境)
+- 编写一个转账的业务逻辑
+
+数据库account表准备
+```mysql
+create table account (
+    id int,
+    name varchar(10),
+    money int);
+
+insert into account values(1,"moke",1000);
+insert into account values(2,"askeladd",1000);
+
+select * from account;
+```
+application.xml
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context-4.2.xsd
+		http://www.springframework.org/schema/aop
+		http://www.springframework.org/schema/aop/spring-aop-4.2.xsd
+		http://www.springframework.org/schema/tx
+		http://www.springframework.org/schema/tx/spring-tx-4.2.xsd ">
+    <!--   注册包扫描和注释  -->
+    <context:component-scan base-package="com.middlename"/>
+    <context:annotation-config/>
+
+    <!--  连接池配置  -->
+    <context:property-placeholder location="classpath:druid.properties"></context:property-placeholder>
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"></property>
+        <property name="url" value="jdbc:mysql://localhost:3306/test"></property>
+        <property name="username" value="root"></property>
+        <property name="password" value="123456"></property>
+    </bean>
+
+    <!--  jdbcTemplate配置  -->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+</beans>
+```
+
+dao接口
+```java
+package com.middlename.dao;
+
+public interface AccountDao {
+    public void update(Integer id,Integer monument);
+}
+```
+daoImpl
+```java
+package com.middlename.dao;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class AccountDaoImpl implements AccountDao{
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public void update(Integer id, Integer monument) {
+        String addsql = "update account set money = money+? where id=?";
+        String subsql = "update account set money = money-? where id=?";
+        String sql = null;
+
+        sql = monument>0?addsql:subsql;
+        Object[] args = new Object[]{Math.abs(monument),id};
+
+        int i = jdbcTemplate.update(sql, args);
+        System.out.println(i);
+    }
+}
+```
+service类
+```java
+package com.middlename.service;
+
+import com.middlename.dao.AccountDao;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AccountService {
+    @Autowired
+    private AccountDao accountDao;
+
+    public void setAccountDao(AccountDao accountDao) {
+        this.accountDao = accountDao;
+    }
+
+    public void transfer(Integer inid,Integer outid,Integer money){
+        accountDao.update(inid,money);
+        accountDao.update(outid,-money);
+    }
+}
+```
+test
+```java
+package com.middlename.Test;
+
+import com.middlename.service.AccountService;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class MyTest {
+    public static void main(String[] args) {
+        ApplicationContext context = new ClassPathXmlApplicationContext("application.xml");
+        AccountService accountService = context.getBean("accountService", AccountService.class);
+        accountService.transfer(1,2,100);
+    }
+}
+```
+转账有两个update()组成;如果这两个没有原子性,即一个成功一个失败就会有大问题
+所以要使用事务
+
+```java
+        accountDao.update(inid,money);
+        int a = 1/0;
+        accountDao.update(outid,-money);
+```
+---
+#### 事务demo
+伪代码
+```java
+try{
+    开启事务        startTransaction
+    业务逻辑
+    全部完成,没有异常,则提交   commit
+}catch(Exception e){
+    异常则报错回滚         rollback
+}
+
+Spring中事务管理操作
+1 事务一般添加在Service层中
+2 在Spring进行事务管理操作 => [1 编程式事务管理;2 声明式事务管理]
+3 声明式事务管理 => [1 基于注解;2 基于xml]
+4 声明式事务管理,底层基于aop
+5 Spring事务管理API => PlatformTransactionManager
+---
+### 注解式事务管理
+1 spring配置文件中配置事务管理器
+* class = org.springframework.jdbc.datasource.DataSourceTransactionManager
+** 需要set 数据源dataSource;id你自己取
+2 引入命名空间tx
+3 开启事务注解 tx:annoataion
+4 相应的Service类打上注解 @Transactional
+5 @Transactional可作用与类和方法;打在类上则类的全部方法开启事务
+
+application.xml
+```xml
+    <!--  注册事务管理器 + 开启事务注释  -->
+    <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+    <tx:annotation-driven transaction-manager="txManager" />
+```
+
+类打@Transactional
+```java
+@Service
+@Transactional
+public class AccountService {
+    @Autowired
+    private AccountDao accountDao;
+
+    public void setAccountDao(AccountDao accountDao) {
+        this.accountDao = accountDao;
+    }
+
+    public void transfer(Integer inid,Integer outid,Integer money){
+        accountDao.update(inid,money);
+        int a = 1/0;
+        accountDao.update(outid,-money);
+    }
+}
+```
+---
+### 事务参数配置
+在service类上面添加@Transactional 并配置相关参数
+
+1 propagation:事务传播行为
+多事务方法直接进行调用,这个过程中事务如何进行管理的
+> 事务方法: 对数据库表数据进行变化的操作
+> 传播： 多事务方法相互调用;事务如何传播
+
+spring的事务传播行为有如下7中
+- required
+- required_new
+- supports
+- not_support
+- mandatory
+- never
+- nested
+
+demo
+```java
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+```
+
+2 isolation: 事务的隔离级别
+事务有特性为隔离性;多事务操作之间不会产生影响,不考虑隔离性会产生三个读问题[脏读;不可重复度;虚度]
+
+spring 中四个隔离级别
+READ UNCOMMITED
+READ COMMITED
+REPETABLE READ
+SERIALIZABLE
+
+demo
+```java
+@Transactional(isolation = Isolation.READ_COMMITTED)
+```
+
+3 timeout:超时时间;事务需要在一定时间内进行提交,如果不提交进行回滚;
+demo
+```java
+@Transactional(timeout = 2)     //默认是-1即不设超时时间
+```
+
+4 readOnly:是否只读
+4.1 读: 查询操作;写:添加修改删操作
+4.2 ReadOnly默认是falsel;true则只能查询
+demo
+```java
+@Transactional(readOnly = true)
+```
+
+5 rollbackFor: 设置出现哪些异常进行回滚
+demo
+```java
+@Transactional(rollbackFor=Exception.class)
+```
+
+6 notRoollbackFor
+demo
+```java
+@Transactional(rollbackFor=Exception.class)
+```
+---
+补充参考
+https://juejin.cn/post/6844903608224333838
+ｊａｖａＧｕｉｄｅ　https://javaguide.cn/
+---
+### 完全注解开发
+1 创建配置类 类上打上标签
+```java
+@Configuration
+@ComponentScan(basePackages = "com.middlename") //开启扫描
+@EnableTransactionManagement    //开启事务
+```
+2 创建相应bean [连接池;jdbcTemplate;事务管理器]
+
+配置类
+```java
+package com.middlename.config;
+
+import com.alibaba.druid.pool.DruidDataSource;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+import javax.sql.DataSource;
+
+@Configuration
+@ComponentScan(basePackages = "com.middlename") //开启扫描
+@EnableTransactionManagement    //开启事务
+public class TxConfig {
+
+    // 1 创建连接池bean
+    @Bean
+    public DruidDataSource getDruidDAtaSrouce(){
+        DruidDataSource druidDataSource = new DruidDataSource();
+        druidDataSource.setDriverClassName("com.mysql.jdbc.Driver");
+        druidDataSource.setUrl("jdbc:mysql:///test");
+        druidDataSource.setUsername("root");
+        druidDataSource.setPassword("123456");
+        return druidDataSource;
+    }
+
+    // 2 创建JdbcTemplate对象
+    @Bean
+    public JdbcTemplate getJdbcTemplate(DataSource dataSource){
+        JdbcTemplate jdbcTemplate = new JdbcTemplate();
+        jdbcTemplate.setDataSource(dataSource);
+        return jdbcTemplate;
+    }
+
+    // 3 创建事务管理器
+    @Bean
+    public DataSourceTransactionManager getDataSourceTransactionManager(DataSource dataSource){
+        DataSourceTransactionManager dataSourceTransactionManager = new DataSourceTransactionManager();
+        dataSourceTransactionManager.setDataSource(dataSource);
+        return dataSourceTransactionManager;
+
+    }
+}
+```
+测试类
+```java
+public class MyTest {
+    public static void main(String[] args) {
+        ApplicationContext context = new AnnotationConfigApplicationContext(TxConfig.class);
+        AccountService accountService = context.getBean("accountService", AccountService.class);
+        accountService.transfer(1,2,100);
+    }
+}
+```
+---
