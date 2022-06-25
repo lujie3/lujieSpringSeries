@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.middlename.demo1.mapper.UserMapper">
+
+    <insert id="insertUser">
+        insert into user values(1,"admin","123",23,"男","123456@qq.com");
+    </insert>
+
+    <update id="modifyUser">
+        update user set username = "modify_value" where id = 4;
+    </update>
+
+    <delete id="deleteUser">
+        delete from user where id = 3;
+    </delete>
+
+    <select id="getUserbyID" resultType="com.middlename.demo1.pojo.User">
+        select * from user where id = 1;
+    </select>
+
+    <select id="getAllUser" resultType="com.middlename.demo1.pojo.User">
+        select * from user;
+    </select>
+</mapper>
+

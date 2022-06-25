@@ -1,0 +1,148 @@
+# 概述
+- Hibernate 基于全自动框架
+- MyBatis 轻量级
+
+
+
+#
+
+### 搭建环境+入门demo
+1 创建一个maven工程
+    1.1 再创建一个子模块
+    1.2 pom.xml 指定打包方式;引入依赖
+pom.xml
+```xml
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.7</version>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>5.1.3</version>
+        </dependency>
+    </dependencies>
+```
+
+2 创建mybatis的核心配置文件
+    默认 mybatis-config.xml(这个xml文件 spring 可以整合掉)
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!--  配置连接数据库的环境  -->
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="JDBC"/>
+            <dataSource type="POOLED">
+                <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
+                <property name="url" value="jdbc:mysql://localhost:3306/test?serverTimezone=UTC "/>
+                <property name="username" value="root"/>
+                <property name="password" value="123456"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <!--  引入映射文件  -->
+    <!--  指定mapper再resource下的文件路径  -->
+    <mappers>
+        <mapper resource="mappers/UserMapper.xml"/>
+    </mappers>
+
+</configuration>
+```
+
+3 创建Mapper接口
+> 相对与dao接口;
+
+    3.1 创建mysql中 user表 -- 创建实体类User
+
+```mysql
+create user (
+    id int,
+    username varchar(20),
+    password varchar(20),
+    age int,
+    sex String,
+    email String
+);
+```
+User - pojo
+
+
+    3.2 创建UserMapper接口+创建mybatis的映射文件
+    > 1 映射文件的命名规则: 表中所对应的实体类的类名 + Mapper.xml
+    > 2 mapper的namespace 与 接口全类名一致
+    > 3 mapper中的sql语句的id 要与方法名一致
+
+UserMapper-接口
+
+UserMapper 映射的xml文件
+
+Test类测试
+
+
+---
+优化功能
+1 自动提交事务
+```java
+SqlSession sqlSession = sqlSessionFactory.openSession(true);
+```
+
+2 日志功能
+pom.xml
+
+```xml
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <junit.version>3.8.1</junit.version>
+        <log4j.version>2.5</log4j.version>
+    </properties>
+
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-api</artifactId>
+                <version>${log4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-core</artifactId>
+                <version>${log4j.version}</version>
+            </dependency>
+```
+log4j2.xml
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n" />
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Root level="debug">
+            <AppenderRef ref="Console" />
+        </Root>
+    </Loggers>
+</Configuration>
+```
+
+- cud
+
+
+- 查询功能
